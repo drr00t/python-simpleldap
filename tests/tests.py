@@ -31,6 +31,15 @@ class ConnectionTests(TestCase):
             else:
                 conn.close()
 
+    def test_connect(self):
+        try:
+            conn = simpleldap.Connection()
+        except Exception, e:
+
+            self.fail("Got error connecting to default server localhost")
+        else:
+            conn.close()
+
     def test_initialize_kwargs(self):
         from StringIO import StringIO
         output = StringIO()
@@ -98,6 +107,12 @@ class ConnectionTests(TestCase):
                           base_dn='ou=Groups,dc=ucdavis,dc=edu')
         self.assertRaises(simpleldap.MultipleObjectsFound, conn.get, 'cn=*',
                           base_dn='ou=Groups,dc=ucdavis,dc=edu')
+
+    def test_user_validate(self):
+        conn = simpleldap.Connection('ldap.ucdavis.edu')
+        obj = conn.get('cn=External Anonymous',
+                       base_dn='ou=Groups,dc=ucdavis,dc=edu')
+        self.assertTrue(conn.user_validate(obj['dn'],'user_pass'))
 
 
 class LDAPItemTests(TestCase):
