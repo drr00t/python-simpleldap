@@ -99,22 +99,12 @@ class Connection(object):
     # this to a class of their liking.
     result_item_class = LDAPItem
 
-    # List of exceptions to treat as a failed bind operation in the
-    # authenticate method.
-    failed_authentication_exceptions = [
-        ldap.NO_SUCH_OBJECT,  # e.g. dn matches no objects.
-        ldap.UNWILLING_TO_PERFORM,  # e.g. dn with no password.
-        ldap.INVALID_CREDENTIALS,  # e.g. wrong password.
-    ]
-
-    def __init__(self, hostname='localhost', port=None, dn='', password='',
+    def __init__(self, hostname, port=None, dn='', password='',
                  encryption=None, require_cert=None, debug=False,
-                 initialize_kwargs=None, options=None, search_defaults=None):
+                 initialize_kwargs=None, options=None):
         """
         Bind to hostname:port using the passed distinguished name (DN), as
         ``dn``, and password.
-
-        If ``hostname`` is not given, default to ``'localhost'``.
 
         If no user and password is given, try to connect anonymously with a
         blank DN and password.
@@ -122,8 +112,7 @@ class Connection(object):
         ``encryption`` should be one of ``'tls'``, ``'ssl'``, or ``None``.
         If ``'tls'``, then the standard port 389 is used by default and after
         binding, tls is started.  If ``'ssl'``, then port 636 is used by
-        default.  ``port`` can optionally be given for connecting to a
-        non-default port.
+        default.
 
         ``require_cert`` is None by default.  Set this to ``True`` or
         ``False`` to set the ``OPT_X_TLS_REQUIRE_CERT`` ldap option.
@@ -131,18 +120,10 @@ class Connection(object):
         If ``debug`` is ``True``, debug options are turned on within ldap and
         statements are ouput to standard error.  Default is ``False``.
 
-        If given, ``options`` should be a dictionary of any additional
+        If give, ``options`` should be a dictionary of any additional
         connection-specific ldap  options to set, e.g.:
         ``{'OPT_TIMELIMIT': 3}``.
-
-        If given, ``search_defaults`` should be a dictionary of default
-        parameters to be passed to the search method.
         """
-        if search_defaults is None:
-            self._search_defaults = {}
-        else:
-            self._search_defaults = search_defaults
-
         if not encryption or encryption == 'tls':
             protocol = 'ldap'
             if not port:
@@ -174,36 +155,6 @@ class Connection(object):
             self.connection.start_tls_s()
         self.connection.simple_bind_s(dn, password)
 
-    def set_search_defaults(self, **kwargs):
-        """
-        Set defaults for search.
-
-        Examples::
-
-            conn.set_search_defaults(basedn='dc=example,dc=com', timeout=100)
-            conn.set_search_defaults(attrs=['cn'], scope=ldap.SCOPE_BASE)
-        """
-        self._search_defaults.update(kwargs)
-
-    def clear_search_defaults(self, args=None):
-        """
-        Clear all search defaults specified by the list of parameter names
-        given as ``args``.  If ``args`` is not given, then clear all existing
-        search defaults.
-
-        Examples::
-
-            conn.set_search_defaults(scope=ldap.SCOPE_BASE, attrs=['cn'])
-            conn.clear_search_defaults(['scope'])
-            conn.clear_search_defaults()
-        """
-        if args is None:
-            self._search_defaults.clear()
-        else:
-            for arg in args:
-                if arg in self._search_defaults:
-                    del self._search_defaults[arg]
-
     def __enter__(self):
         return self
 
@@ -216,22 +167,11 @@ class Connection(object):
         """
         self.connection.unbind_s()
 
-    def search(self, filter, base_dn=None, attrs=None, scope=None,
-               timeout=None, limit=None):
+    def search(self, filter, base_dn='', attrs=None, scope=ldap.SCOPE_SUBTREE,
+               timeout=-1, limit=0):
         """
         Search the directory.
         """
-        if base_dn is None:
-            base_dn = self._search_defaults.get('base_dn', '')
-        if attrs is None:
-            attrs = self._search_defaults.get('attrs', None)
-        if scope is None:
-            scope = self._search_defaults.get('scope', ldap.SCOPE_SUBTREE)
-        if timeout is None:
-            timeout = self._search_defaults.get('timeout', -1)
-        if limit is None:
-            limit = self._search_defaults.get('limit', 0)
-
         results = self.connection.search_ext_s(
             base_dn, scope, filter, attrs, timeout=timeout, sizelimit=limit)
         return self.to_items(results)
@@ -258,17 +198,3 @@ class Connection(object):
         convenient objects.
         """
         return [self.result_item_class(item) for item in results]
-
-    def authenticate(self, dn='', password=''):
-        """
-        Attempt to authenticate given dn and password using a bind operation.
-        Return True if the bind is successful, and return False there was an
-        exception raised that is contained in
-        self.failed_authentication_exceptions.
-        """
-        try:
-            self.connection.simple_bind_s(dn, password)
-        except tuple(self.failed_authentication_exceptions):
-            return False
-        else:
-            return True
