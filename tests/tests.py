@@ -31,15 +31,6 @@ class ConnectionTests(TestCase):
             else:
                 conn.close()
 
-    def test_connect(self):
-        try:
-            conn = simpleldap.Connection()
-        except Exception, e:
-
-            self.fail("Got error connecting to default server localhost")
-        else:
-            conn.close()
-
     def test_initialize_kwargs(self):
         from StringIO import StringIO
         output = StringIO()
@@ -95,22 +86,6 @@ class ConnectionTests(TestCase):
         self.assertEqual(len(obj), 1)
         self.assertTrue('cn' in obj)
 
-    def test_search_defaults(self):
-        conn = simpleldap.Connection('ldap.ucdavis.edu', search_defaults={'limit': 1})
-        conn.set_search_defaults(base_dn='ou=Groups,dc=ucdavis,dc=edu')
-        self.assertRaises(ldap.SIZELIMIT_EXCEEDED, conn.search, 'cn=*')
-        kwargs = {'filter': 'cn=External Anonymous', }
-        conn.clear_search_defaults(['limit'])
-        # Should return all attrs.
-        self.assertTrue(len(conn.search(**kwargs)[0]) > 2)
-        # Should return just cn attr.
-        conn.set_search_defaults(attrs=['cn'])
-        obj = conn.search(**kwargs)[0]
-        self.assertEqual(len(obj), 1)
-        self.assertTrue('cn' in obj)
-        conn.clear_search_defaults()
-        self.assertEqual(conn._search_defaults, {})
-
     def test_get(self):
         conn = simpleldap.Connection('ldap.ucdavis.edu')
         obj = conn.get('cn=External Anonymous',
@@ -123,31 +98,6 @@ class ConnectionTests(TestCase):
                           base_dn='ou=Groups,dc=ucdavis,dc=edu')
         self.assertRaises(simpleldap.MultipleObjectsFound, conn.get, 'cn=*',
                           base_dn='ou=Groups,dc=ucdavis,dc=edu')
-
-    def test_user_validate(self):
-        conn = simpleldap.Connection('ldap.ucdavis.edu')
-        obj = conn.get('cn=External Anonymous',
-                       base_dn='ou=Groups,dc=ucdavis,dc=edu')
-        self.assertTrue(conn.user_validate(obj['dn'],'user_pass'))
-
-
-class AuthenticateTests(TestCase):
-
-    def test_success(self):
-        conn = simpleldap.Connection('ldap.ucdavis.edu')
-        self.assertTrue(conn.authenticate('cn=External Anonymous,ou=Groups,dc=ucdavis,dc=edu', ''))
-
-    def test_fail_no_such_object(self):
-        conn = simpleldap.Connection('ldap.ucdavis.edu')
-        self.assertFalse(conn.authenticate('uid=foobar', 'baz'))
-
-    def test_fail_unwilling_to_perform(self):
-        conn = simpleldap.Connection('ldap.utexas.edu')
-        self.assertFalse(conn.authenticate('cn=Anonymous', ''))
-
-    def test_fail_invalid_credentials(self):
-        conn = simpleldap.Connection('ldap.utexas.edu')
-        self.assertFalse(conn.authenticate('uid=foobar', 'baz'))
 
 
 class LDAPItemTests(TestCase):
