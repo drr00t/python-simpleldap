@@ -99,7 +99,7 @@ class Connection(object):
     # this to a class of their liking.
     result_item_class = LDAPItem
 
-    def __init__(self, hostname, port=None, dn='', password='',
+    def __init__(self, hostname='localhost', port=389, dn='', password='',
                  encryption=None, require_cert=None, debug=False,
                  initialize_kwargs=None, options=None):
         """
@@ -198,3 +198,15 @@ class Connection(object):
         convenient objects.
         """
         return [self.result_item_class(item) for item in results]
+
+    def user_validate(self, dn_user, password):
+        """
+        Try authenticate user with user dn and password.
+        :param dn_user: complete dn of desired user
+        :param password: password to bind
+        """
+        try:
+            with Connection(dn=dn_user, password=password) as userConn:
+                return True
+        except ldap.INVALID_CREDENTIALS, e:
+            return False
